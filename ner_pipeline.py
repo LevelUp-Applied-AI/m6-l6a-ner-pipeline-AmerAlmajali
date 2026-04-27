@@ -285,6 +285,75 @@ def evaluate_ner(predicted_df, gold_df):
     pass
 
 
+def detailed_error_report(predicted_df, gold_df, system_name):
+    """
+    Print a detailed breakdown of TP, FP (spurious), and FN (missed)
+    entities compared to the gold standard.
+
+    Args:
+        predicted_df: DataFrame with columns text_id, entity_text, entity_label.
+        gold_df:      DataFrame with columns text_id, entity_text, entity_label.
+        system_name:  String label for display (e.g. 'spaCy' or 'HF').
+    """
+    predicted_set = set(
+        zip(
+            predicted_df["text_id"],
+            predicted_df["entity_text"].str.lower(),
+            predicted_df["entity_label"],
+        )
+    )
+    gold_set = set(
+        zip(
+            gold_df["text_id"],
+            gold_df["entity_text"].str.lower(),
+            gold_df["entity_label"],
+        )
+    )
+
+    tp_set = predicted_set & gold_set
+    fp_set = predicted_set - gold_set  # predicted but not in gold  (spurious)
+    fn_set = gold_set - predicted_set  # in gold but not predicted  (missed)
+
+    print(f"\n{'='*60}")
+    print(f"  {system_name} — Detailed Error Report")
+    print(f"{'='*60}")
+    print(f"  True Positives  (correct):  {len(tp_set)}")
+    print(f"  False Positives (spurious): {len(fp_set)}")
+    print(f"  False Negatives (missed):   {len(fn_set)}")
+
+    # ── Correctly found ──────────────────────────────────────────
+    print(f"\n--- Correctly Found (TP) ---")
+    tp_df = pd.DataFrame(
+        sorted(tp_set), columns=["text_id", "entity_text", "entity_label"]
+    )
+    print(tp_df.to_string(index=False))
+
+    # ── Missed by the system ─────────────────────────────────────
+    print(f"\n--- Missed by {system_name} (FN) — in gold but not predicted ---")
+    fn_df = pd.DataFrame(
+        sorted(fn_set), columns=["text_id", "entity_text", "entity_label"]
+    )
+    if fn_df.empty:
+        print("  (none)")
+    else:
+        # group by label so the pattern is obvious
+        for label, group in fn_df.groupby("entity_label"):
+            print(f"\n  [{label}]")
+            print(group[["text_id", "entity_text"]].to_string(index=False))
+
+    # ── Spurious predictions ─────────────────────────────────────
+    print(f"\n--- Spurious by {system_name} (FP) — predicted but not in gold ---")
+    fp_df = pd.DataFrame(
+        sorted(fp_set), columns=["text_id", "entity_text", "entity_label"]
+    )
+    if fp_df.empty:
+        print("  (none)")
+    else:
+        for label, group in fp_df.groupby("entity_label"):
+            print(f"\n  [{label}]")
+            print(group[["text_id", "entity_text"]].to_string(index=False))
+
+
 if __name__ == "__main__":
     # Load spaCy and HF models once, reuse across functions
     nlp = spacy.load("en_core_web_sm")
@@ -326,7 +395,31 @@ if __name__ == "__main__":
 
         # Evaluate against gold standard
         gold = pd.read_csv("data/gold_entities.csv")
+
+        print(
+            f"\nGold standard: {len(gold)} entities across "
+            f"{gold['text_id'].nunique()} texts"
+        )
+        print(f"Gold label breakdown:\n{gold['entity_label'].value_counts()}")
+
         if spacy_entities is not None:
-            metrics = evaluate_ner(spacy_entities, gold)
-            if metrics is not None:
-                print(f"\nspaCy evaluation: {metrics}")
+            spacy_metrics = evaluate_ner(spacy_entities, gold)
+            print(f"\nspaCy evaluation: {spacy_metrics}")
+            detailed_error_report(spacy_entities, gold, "spaCy")
+
+        if hf_entities is not None:
+            hf_metrics = evaluate_ner(hf_entities, gold)
+            print(f"\nHF evaluation: {hf_metrics}")
+            detailed_error_report(hf_entities, gold, "HF")
+
+        # ── Side-by-side summary ──────────────────────────────────
+        if spacy_entities is not None and hf_entities is not None:
+            print(f"\n{'='*60}")
+            print("  Final Metrics Comparison")
+            print(f"{'='*60}")
+            print(f"  {'Metric':<12} {'spaCy':>10} {'HF':>10}")
+            print(f"  {'-'*34}")
+            for key in ["precision", "recall", "f1"]:
+                print(
+                    f"  {key:<12} {spacy_metrics[key]:>10.3f} {hf_metrics[key]:>10.3f}"
+                )
