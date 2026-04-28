@@ -15,143 +15,104 @@ def load_data(filepath="data/climate_articles.csv"):
 
 
 def build_patterns():
-    """
-    Patterns built directly from the gold standard misses identified
-    in the Lab 6A error analysis — targeting entities both spaCy and
-    HF failed on, plus 4 custom label types required by the stretch spec.
-    """
     patterns = [
         # ── POLICY (custom label) ─────────────────────────────────────
-        # Paris Agreement — missed by both systems in texts 5, 7, 10
         {"label": "POLICY", "pattern": "Paris Agreement"},
-        # text 6 — missed by both systems
         {"label": "POLICY", "pattern": "Carbon Border Adjustment Mechanism"},
-        {"label": "POLICY", "pattern": "CBAM"},
-        {"label": "POLICY", "pattern": "Montreal Protocol"},
-        {"label": "POLICY", "pattern": "Kigali Amendment"},
-        {"label": "POLICY", "pattern": "Loss and Damage Fund"},
-        {"label": "POLICY", "pattern": "Global Methane Pledge"},
         {"label": "POLICY", "pattern": "Nationally Determined Contribution"},
-        {"label": "POLICY", "pattern": "NDC"},
+        # ── LAW (standard label) — gold texts 5, 7, 10 use LAW not POLICY
+        {"label": "LAW", "pattern": "Paris Agreement"},
+        {"label": "LAW", "pattern": "Carbon Border Adjustment Mechanism"},
         # ── CLIMATE_EVENT (custom label) ──────────────────────────────
-        # text 5 — missed by both, gold label was EVENT
+        {
+            "label": "CLIMATE_EVENT",
+            "pattern": [{"TEXT": {"REGEX": r"^COP\d+$"}}],
+        },
         {"label": "CLIMATE_EVENT", "pattern": "Bonn Climate Change Conference"},
-        # text 7 — missed by both, gold label was EVENT
-        {"label": "CLIMATE_EVENT", "pattern": "Climate Ambition Summit"},
-        # text 2, 10 — HF broke into subwords: cop28
-        {"label": "CLIMATE_EVENT", "pattern": "COP28"},
-        {"label": "CLIMATE_EVENT", "pattern": "COP27"},
-        {"label": "CLIMATE_EVENT", "pattern": "COP26"},
-        {"label": "CLIMATE_EVENT", "pattern": "One Planet Summit"},
-        {"label": "CLIMATE_EVENT", "pattern": "Global Stocktake"},
+        # ── EVENT (standard label) — gold text 5 uses EVENT not CLIMATE_EVENT
+        {"label": "EVENT", "pattern": "Bonn Climate Change Conference"},
+        {"label": "EVENT", "pattern": "Climate Ambition Summit"},
         # ── REPORT (custom label) ─────────────────────────────────────
-        # text 1 — missed by both, gold label was WORK_OF_ART
-        {"label": "REPORT", "pattern": "Sixth Assessment Report"},
-        {"label": "REPORT", "pattern": "IPCC AR6"},
-        {"label": "REPORT", "pattern": "Emissions Gap Report"},
-        {"label": "REPORT", "pattern": "Adaptation Gap Report"},
-        {"label": "REPORT", "pattern": "Global Methane Assessment"},
-        {"label": "REPORT", "pattern": "Global Landscape of Climate Finance"},
-        {"label": "REPORT", "pattern": "Global Risks Report"},
+        {
+            "label": "REPORT",
+            "pattern": [
+                {
+                    "LOWER": {
+                        "IN": ["first", "second", "third", "fourth", "fifth", "sixth"]
+                    }
+                },
+                {"LOWER": "assessment"},
+                {"LOWER": "report"},
+            ],
+        },
+        {
+            "label": "REPORT",
+            "pattern": [
+                {"IS_TITLE": True},
+                {"LOWER": "gap"},
+                {"LOWER": "report"},
+            ],
+        },
+        # ── WORK_OF_ART (standard) — gold text 1 uses WORK_OF_ART not REPORT
+        {
+            "label": "WORK_OF_ART",
+            "pattern": [
+                {
+                    "LOWER": {
+                        "IN": ["first", "second", "third", "fourth", "fifth", "sixth"]
+                    }
+                },
+                {"LOWER": "assessment"},
+                {"LOWER": "report"},
+            ],
+        },
         # ── THRESHOLD (custom label) ──────────────────────────────────
-        # text 1 — gold label was QUANTITY, HF schema can't predict it
-        {"label": "THRESHOLD", "pattern": "1.5 degrees Celsius"},
-        {"label": "THRESHOLD", "pattern": "2 degrees Celsius"},
-        {"label": "THRESHOLD", "pattern": "1.5°C"},
-        {"label": "THRESHOLD", "pattern": "2°C"},
-        {"label": "THRESHOLD", "pattern": "net zero"},
-        {"label": "THRESHOLD", "pattern": "net-zero"},
-        {"label": "THRESHOLD", "pattern": "carbon neutral"},
-        {"label": "THRESHOLD", "pattern": "carbon neutrality"},
         {
             "label": "THRESHOLD",
             "pattern": [
                 {"LIKE_NUM": True},
-                {"TEXT": {"IN": ["°C", "degrees"]}},
+                {"LOWER": {"IN": ["degrees", "°c"]}},
                 {"LOWER": "celsius", "OP": "?"},
             ],
         },
-        # ── LAW (standard label) ──────────────────────────────────────
-        # missed by both in texts 5, 7, 10
-        {"label": "LAW", "pattern": "Paris Agreement"},
-        # missed by both in text 6
-        {"label": "LAW", "pattern": "Carbon Border Adjustment Mechanism"},
-        {"label": "LAW", "pattern": "CBAM"},
-        # ── EVENT (standard label) ────────────────────────────────────
-        # missed by both in text 5
-        {"label": "EVENT", "pattern": "Bonn Climate Change Conference"},
-        # missed by both in text 7
-        {"label": "EVENT", "pattern": "Climate Ambition Summit"},
-        # ── WORK_OF_ART (standard label) ──────────────────────────────
-        # missed by both in text 1
-        {"label": "WORK_OF_ART", "pattern": "Sixth Assessment Report"},
+        {"label": "THRESHOLD", "pattern": "net zero"},
+        {"label": "THRESHOLD", "pattern": "carbon neutral"},
+        # ── QUANTITY (standard) — gold text 1 uses QUANTITY not THRESHOLD
+        {"label": "QUANTITY", "pattern": "1.5 degrees Celsius"},
+        {"label": "QUANTITY", "pattern": "190 nations"},
+        {"label": "QUANTITY", "pattern": "735 million people"},
+        {"label": "QUANTITY", "pattern": "31%"},
         # ── ORG (standard label) ──────────────────────────────────────
-        # text 2, 10 — HF broke into subwords
-        {"label": "ORG", "pattern": "COP28"},
-        {"label": "ORG", "pattern": "COP27"},
-        # text 9 — HF missed entirely
+        # COP28, COP27 etc — gold texts 2, 10 use ORG
+        {
+            "label": "ORG",
+            "pattern": [{"TEXT": {"REGEX": "^COP\d+$"}}],
+        },
         {"label": "ORG", "pattern": "Green Climate Fund"},
-        # text 7 — HF broke into unitednationsgeneralassembly
         {"label": "ORG", "pattern": "United Nations General Assembly"},
-        # text 4 — HF missed
         {"label": "ORG", "pattern": "Ministry of Environment"},
-        # text 4 — HF missed
         {"label": "ORG", "pattern": "European Union"},
-        # text 6
-        {"label": "ORG", "pattern": "EU"},
-        # text 3 — HF broke into worldbank
         {"label": "ORG", "pattern": "World Bank"},
-        # text 8 — HF missed
-        {"label": "ORG", "pattern": "FAO"},
-        # text 5
-        {"label": "ORG", "pattern": "UNFCCC"},
-        # text 1
-        {"label": "ORG", "pattern": "IPCC"},
-        # ── GPE (standard label) ──────────────────────────────────────
-        # text 2 — HF: LOC not GPE
+        # ── GPE (standard label) — HF labeled all as LOC ──────────────
         {"label": "GPE", "pattern": "Dubai"},
-        # text 2 — HF broke into unitedarabemirates
         {"label": "GPE", "pattern": "United Arab Emirates"},
-        # text 7 — HF: LOC not GPE
         {"label": "GPE", "pattern": "New York"},
-        # text 9 — HF: LOC not GPE
         {"label": "GPE", "pattern": "South Korea"},
         {"label": "GPE", "pattern": "Bangladesh"},
         {"label": "GPE", "pattern": "Songdo"},
-        # text 10 — HF: LOC not GPE
         {"label": "GPE", "pattern": "California"},
-        # text 4 — HF: LOC not GPE
         {"label": "GPE", "pattern": "Jordan"},
-        # text 10 — HF: LOC not GPE
         {"label": "GPE", "pattern": "China"},
-        # ── PERSON (standard label) ───────────────────────────────────
-        # text 1 — HF: antonioguterres (broken)
+        # ── PERSON (standard label) — HF broke with subwords ──────────
         {"label": "PERSON", "pattern": "Antonio Guterres"},
-        # text 3 — HF: ##jaybanga (broken)
         {"label": "PERSON", "pattern": "Ajay Banga"},
-        # text 5 — HF: simonstiell (broken)
         {"label": "PERSON", "pattern": "Simon Stiell"},
-        # text 8 — HF: ##udongyu (broken)
         {"label": "PERSON", "pattern": "Qu Dongyu"},
-        # text 10 — HF: johnkerry (broken)
         {"label": "PERSON", "pattern": "John Kerry"},
-        # text 10 — HF: xiezhenhua (broken)
         {"label": "PERSON", "pattern": "Xie Zhenhua"},
-        # ── QUANTITY (standard label) ─────────────────────────────────
-        # text 1 — gold entity, HF schema cannot predict QUANTITY
-        {"label": "QUANTITY", "pattern": "1.5 degrees Celsius"},
-        # text 2 — gold entity
-        {"label": "QUANTITY", "pattern": "190 nations"},
-        # text 8 — gold entity
-        {"label": "QUANTITY", "pattern": "735 million people"},
-        # text 4 — gold entity
-        {"label": "QUANTITY", "pattern": "31%"},
         # ── MONEY (standard label) ────────────────────────────────────
-        # text 3
         {"label": "MONEY", "pattern": "$12.5 billion"},
-        # text 8
         {"label": "MONEY", "pattern": "$4 billion"},
-        # text 9 — flexible token pattern for $X million/billion/trillion
         {
             "label": "MONEY",
             "pattern": [
