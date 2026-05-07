@@ -23,6 +23,13 @@ def load_and_filter_data(csv_path: str):
     print(f"Language counts:\n{df['language'].value_counts()}\n")
     en_df = df[df["language"] == "en"].reset_index(drop=True)
     ar_df = df[df["language"] == "ar"].reset_index(drop=True)
+    # print("=== English articles (id | category | first 60 chars) ===")
+    # for i, row in en_df.iterrows():
+    #     print(f"  [{i}] id={row['id']} | {row['category']} | {row['text'][:60]}...")
+
+    # print("\n=== Arabic articles (id | category | first 60 chars) ===")
+    # for i, row in ar_df.iterrows():
+    #     print(f"  [{i}] id={row['id']} | {row['category']} | {row['text'][:60]}...")
     return en_df, ar_df
 
 
